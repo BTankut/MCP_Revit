@@ -1,0 +1,42 @@
+{
+  "name": "SampleCommandSet",
+  "description": "Basic command collection for Revit AI assistance",
+  "developer": {
+    "name": "revit-mcp",
+    "email": "",
+    "website": "",
+    "organization": "revit-mcp"
+  },
+  "commands": [
+    {
+      "commandName": "say_hello",
+      "description": "Displays a greeting dialog",
+      "assemblyPath": "SampleCommandSet.dll"
+    },
+    {
+      "commandName": "get_available_family_types",
+      "description": "get available family types",
+      "assemblyPath": "SampleCommandSet.dll"
+    },
+    {
+      "commandName": "get_current_view_elements",
+      "description": "get current view elements",
+      "assemblyPath": "SampleCommandSet.dll"
+    },
+    {
+      "commandName": "get_current_view_info",
+      "description": "get current view info",
+      "assemblyPath": "SampleCommandSet.dll"
+    },
+    {
+      "commandName": "create_Wall",
+      "description": "create a wall",
+      "assemblyPath": "SampleCommandSet.dll"
+    },
+    {
+      "commandName": "delete_element",
+      "description": "Deletes elements using ElementId",
+      "assemblyPath": "SampleCommandSet.dll"
+    }
+  ]
+}
