@@ -1,106 +1,193 @@
-# revit-mcp
+# MCP Revit Integration
 
-English | [简体中文](README_zh.md)
+## Overview
 
-## Description
+This project enables **AI-powered interaction with Autodesk Revit** through the Model Context Protocol (MCP). It combines:
 
-revit-mcp allows you to interact with Revit using the MCP protocol through MCP-supported clients (such as Claude, Cline, etc.).
+- **A Node.js MCP server** that exposes Revit operations as AI-accessible tools.
+- **A Revit plugin** that executes commands, queries model data, and communicates with the MCP server.
 
-This project is the server side (providing Tools to AI), and you need to use [revit-mcp-plugin](https://github.com/revit-mcp/revit-mcp-plugin) (driving Revit) in conjunction.
+Together, they allow AI clients (like **Cline** or **Claude**) to **analyze, modify, and automate Revit models**.
 
-Join [Discord](https://discord.gg/cGzUGurq) | [QQ Group](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=kLnQiFVtYBytHm7R58KFoocd3mzU_9DR&authKey=fyXDOBmXP7FMkXAWjddWZumblxKJH7ZycYyLp40At3t9%2FOfSZyVO7zyYgIROgSHF&noverify=0&group_code=792379482)
+---
 
 ## Features
 
-- Allow AI to get data from the Revit project
-- Allow AI to drive Revit to create, modify, and delete elements
-- Send AI-generated code to Revit to execute (may not be successful, successful rate is higher in some simple scenarios with clear requirements)
+- Query Revit model data (views, elements, families, parameters)
+- Create, modify, and delete Revit elements (walls, doors, floors, etc.)
+- Color-code elements based on parameters
+- Tag elements automatically
+- Execute custom C# code snippets inside Revit
+- Extendable with your own Revit commands and MCP tools
 
-## Requirements
+---
 
-- nodejs 18+
-
-> Complete installation environment still needs to consider the needs of revit-mcp-plugin, please refer to [revit-mcp-plugin](https://github.com/revit-mcp/revit-mcp-plugin)
-
-## Installation
-
-### 1. Build local MCP service
-
-Install dependencies
-
-```bash
-npm install
-```
-
-Build
-
-```bash
-npm run build
-```
-
-### 2. Client configuration
-
-**Claude client**
-
-Claude client -> Settings > Developer > Edit Config > claude_desktop_config.json
-
-```json
-{
-    "mcpServers": {
-        "revit-mcp": {
-            "command": "node",
-            "args": ["<path to the built file>\\build\\index.js"]
-        }
-    }
-}
-```
-
-Restart the Claude client. When you see the hammer icon, it means the connection to the MCP service is normal.
-
-![claude](./assets/claude.png)
-
-## Framework
+## Architecture
 
 ```mermaid
 flowchart LR
-	CladueDesktop --> revit-mcp --> SocketService--commandName-->CommandlSet--command-->CommandExecute
-	CommandManager --> CommandlSet
-	CommandExecute --executeResult--> SocketService
-	CommandProject1 --> CommandManager
-	CommandProject2 --> CommandManager
-	CommandProject... --> CommandManager
-	subgraph ide1 [MCPClient]
-	CladueDesktop
-	end
-	subgraph ide2 [MCPServer]
-	revit-mcp
-	end
-	subgraph ide3 [Revit]
-			subgraph ide3.1 [revit-mcp-plugin]
-				SocketService
-				CommandlSet
-				CommandManager
-				CommandExecute
-			end
-	end
+    subgraph AI_Client
+        Cline
+    end
+    subgraph MCP_Server
+        revit-mcp
+    end
+    subgraph Revit
+        subgraph Plugin
+            SocketService
+            CommandManager
+            CommandSet
+            CommandExecutor
+        end
+    end
+
+    Cline --> revit-mcp
+    revit-mcp --> SocketService
+    SocketService --> CommandManager
+    CommandManager --> CommandSet
+    CommandSet --> CommandExecutor
+    CommandExecutor --> SocketService
 ```
 
-## Supported Tools
+---
 
-| Name                      | Description                               |
-| ------------------------- | ----------------------------------------- |
-| get_current_view_info     | Get current view info                     |
-| get_current_view_elements | Get current view elements                 |
-| get_available_family_types | Get available family types in current project |
-| get_selected_elements      | Get selected elements                      |
-| create_point_based_element  | Create point based element (door, window, furniture) |
-| create_line_based_element   | Create line based element (wall, beam, pipe) |
-| create_surface_based_element   | Create surface based element (floor, ceiling) |
-| delete_elements             | Delete elements                            |
-| reset_model                | Reset model (delete process model when executing continuous dialog) |
-| modify_element             | Modify element's properties (instance parameters) |
-| search_modules             | Search for available modules              |
-| use_module                 | Use module                                |
-| send_code_to_revit         | Send code to Revit to execute             |
-| color_splash		     | Color elements based on a parameter value	|
-| tag_walls		     | Tag all walls in view            |
+## Components
+
+### 1. MCP Server (`revit-mcp`)
+
+- Node.js app exposing Revit operations as MCP tools
+- Communicates with AI clients
+- Sends commands to the Revit plugin via socket
+
+### 2. Revit Plugin (`revit-mcp-plugin`)
+
+- .NET plugin loaded into Revit (2019-2024)
+- Registers and executes commands
+- Communicates with MCP server
+- Loads **Command Sets** (DLLs) for specific features
+
+---
+
+## Installation
+
+### Prerequisites
+
+- **Node.js 18+**
+- **Autodesk Revit 2019-2024**
+- **Visual Studio** (to build the plugin)
+
+### 1. Build MCP Server
+
+```bash
+npm install
+npm run build
+```
+
+### 2. Build Revit Plugin
+
+- Open `plugin/revit-mcp-plugin.sln` in Visual Studio
+- Set configuration to `Release` and platform to `x64`
+- Build the solution
+- Copy `revit-mcp-plugin.dll` and `revit-mcp-sdk.dll` to:
+
+```
+C:\Users\<YourUser>\AppData\Roaming\Autodesk\Revit\Addins\2022\
+```
+
+### 3. Register the Plugin
+
+Create a `.addin` file in the same folder:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>revit-mcp</Name>
+    <Assembly>C:\Users\<YourUser>\AppData\Roaming\Autodesk\Revit\Addins\2022\revit-mcp-plugin.dll</Assembly>
+    <FullClassName>revit_mcp_plugin.Core.Application</FullClassName>
+    <ClientId>090A4C8C-61DC-426D-87DF-E4BAE0F80EC1</ClientId>
+    <VendorId>revit-mcp</VendorId>
+    <VendorDescription>https://github.com/BTankut/MCP_Revit</VendorDescription>
+  </AddIn>
+</RevitAddIns>
+```
+
+### 4. Configure MCP Server in Cline
+
+Add to your `cline_mcp_settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "revit-mcp": {
+      "command": "node",
+      "args": ["c:/Users/BT/CascadeProjects/MCP Revit/build/index.js"],
+      "env": {}
+    }
+  }
+}
+```
+
+---
+
+## Usage
+
+- Start Revit. The plugin loads automatically.
+- Start the MCP server:
+
+```bash
+node build/index.js
+```
+
+- Open Cline or Claude.
+- Use AI commands like:
+  - **"List all walls"**
+  - **"Create a new door here"**
+  - **"Color rooms by area"**
+  - **"Delete selected elements"**
+
+---
+
+## Extending Functionality
+
+### Add New Revit Commands
+
+- Develop C# commands in a **Command Set** (DLL)
+- Register them in `command.json`
+- Place in `Commands/YourCommandSet/2022/YourCommandSet.dll`
+
+### Add New MCP Tools
+
+- Create new `.ts` files in `src/tools/`
+- Implement tool logic (call plugin commands, process data)
+- Export as MCP tool
+- Rebuild server (`npm run build`)
+
+---
+
+## Project Structure
+
+- `src/` — MCP server TypeScript source
+- `build/` — Compiled MCP server
+- `plugin/` — Revit plugin source
+- `plugin/bin/x64/Release/` — Compiled plugin DLLs
+- `plugin/SampleCommandSet/` — Example command set
+- `sdk_extract/` — Extracted SDK dependencies
+
+---
+
+## Summary
+
+This project enables **AI-driven BIM automation** by bridging Revit and AI clients via MCP:
+
+- **AI** issues commands
+- **MCP server** translates and forwards
+- **Revit plugin** executes and responds
+
+You can **customize** both plugin commands and MCP tools to fit your workflows.
+
+---
+
+## License
+
+MIT License
